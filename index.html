@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leak in ya ceiling - Pixel Edition</title>
+    <style>
+        body { 
+            margin: 0; 
+            overflow: hidden; 
+            background-color: #000; 
+            font-family: 'Courier New', Courier, monospace; 
+            image-rendering: pixelated;
+        }
+        
+        canvas {
+            display: block;
+            width: 100vw !important;
+            height: 100vh !important;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: pixelated;
+        }
+
+        /* --- MINIMALISTIC HOME SCREEN --- */
+        #home-screen {
+            position: absolute;
+            inset: 0;
+            background: #050505;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            color: #00f2ff; /* Hot Blue Accent */
+            padding: 40px;
+        }
+
+        .title-card {
+            font-size: 2.5rem;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 0 #004466;
+            letter-spacing: 4px;
+            animation: flicker 3s infinite;
+        }
+
+        @keyframes flicker {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        .main-container {
+            display: flex;
+            gap: 60px;
+            max-width: 900px;
+            width: 100%;
+            align-items: flex-start;
+        }
+
+        .controls-column {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            text-align: left;
+        }
+
+        .tutorial-column {
+            flex: 1;
+            text-align: left;
+            border-left: 1px solid #004466;
+            padding-left: 40px;
+            color: #0088aa;
+        }
+
+        .tutorial-text {
+            font-size: 0.85rem;
+            line-height: 1.8;
+        }
+
+        .setting-item {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            font-size: 0.8rem;
+            color: #0088aa;
+        }
+
+        select, button {
+            background: transparent;
+            color: #00f2ff;
+            border: 1px solid #00f2ff;
+            padding: 12px;
+            font-family: inherit;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: all 0.2s ease;
+        }
+
+        button.start-btn {
+            background: #00f2ff;
+            color: #000;
+            font-weight: bold;
+            margin-top: 10px;
+            border: none;
+        }
+
+        button:hover {
+            background: #fff;
+            color: #000;
+            border-color: #fff;
+        }
+
+        /* --- IN-GAME UI --- */
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00f2ff;
+            text-shadow: 2px 2px #000;
+            pointer-events: none;
+            user-select: none;
+            font-size: 1.2rem;
+            font-weight: bold;
+            z-index: 10;
+            display: none;
+        }
+        
+        #crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 6px;
+            border: 1px solid #fff;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            display: none;
+        }
+
+        #interaction-prompt {
+            position: absolute;
+            top: 55%;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #fff;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            display: none;
+            text-shadow: 1px 1px #000;
+        }
+
+        #game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: #000;
+            color: #ff0000;
+            padding: 40px;
+            text-align: center;
+            display: none;
+            border: 2px solid #ff0000;
+            z-index: 200;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="home-screen">
+        <div class="title-card">LEAK IN YA CEILING</div>
+        
+        <div class="main-container">
+            <div class="controls-column">
+                <div class="setting-item">
+                    <span>PIXEL DENSITY</span>
+                    <select id="pixel-select" onchange="setPixelScale(this.value)">
+                        <option value="1">1x (Sharp)</option>
+                        <option value="2">2x (Retro)</option>
+                        <option value="4" selected>4x (Chunky)</option>
+                        <option value="8">8x (Deep Fried)</option>
+                        <option value="16">16x (Abstract)</option>
+                    </select>
+                </div>
+                <button class="start-btn" onclick="startGame()">START SESSION</button>
+            </div>
+
+            <div class="tutorial-column">
+                <div class="tutorial-text">
+                    <span style="color: #fff; border-bottom: 1px solid #fff; margin-bottom: 10px; display: inline-block;">LOGISTICS:</span><br>
+                    - WASD: Navigate apartment<br>
+                    - SPACE: Jump<br>
+                    - LEFT CLICK: Interact with bucket<br>
+                    - Q: Drain held bucket<br>
+                    - Ceiling mold generates moisture<br>
+                    - Do not permit 100% saturation
+                </div>
+            </div>
+        </div>
+        <p style="font-size: 0.6rem; position: absolute; bottom: 20px; color: #222;">SYSTEM STABLE // v1.0.4</p>
+    </div>
+
+    <div id="ui">
+        <div style="color: #00f2ff">TIME: <span id="timer">0</span>s</div>
+        <div style="color: #00f2ff">BUCKET: <span id="bucket-fill">0</span>% <span id="holding-status">(HOLDING)</span></div>
+        <div style="color: #ffcc00">FLOOD: <span id="flood-level">0</span>%</div>
+    </div>
+
+    <div id="crosshair"></div>
+    <div id="interaction-prompt">Click to Action</div>
+
+    <div id="game-over">
+        <h1 style="font-size: 2rem; margin: 0;">SATURATION LIMIT REACHED</h1>
+        <p>TIME ELAPSED: <span id="final-time">0</span>s</p>
+        <button onclick="location.reload()" style="border-color: #ff0000; color: #ff0000;">REBOOT</button>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // --- GITHUB CONFIG ---
+        const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/';
+
+        // --- CONFIG & STATE ---
+        let pixelScale = 4;
+        let bucketFill = 0;
+        let floodLevel = 0;
+        let startTime;
+        let gameOver = false;
+        let isHoldingBucket = true;
+        let gameStarted = false;
+        const BUCKET_CAPACITY = 100;
+        const FLOOD_LIMIT = 100;
+
+        const PLAYER_HEIGHT = 1.6;
+        const JUMP_FORCE = 0.15;
+        const GRAVITY = 0.008;
+        let yVelocity = 0;
+        let isGrounded = true;
+
+        let keys = {};
+        let pitch = 0, yaw = 0;
+        const drips = [];
+
+        // --- THREE.JS SETUP ---
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x050505);
+        scene.fog = new THREE.Fog(0x050505, 1, 15);
+
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({ antialias: false });
+        
+        function setPixelScale(val) {
+            pixelScale = parseInt(val);
+            renderer.setPixelRatio(1 / pixelScale);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        renderer.setPixelRatio(1 / pixelScale); 
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        document.body.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        scene.add(ambientLight);
+        const pointLight = new THREE.PointLight(0x00f2ff, 1.5, 12);
+        pointLight.position.set(0, 3.5, 0);
+        scene.add(pointLight);
+
+        // --- TEXTURE LOADING ---
+        const texLoader = new THREE.TextureLoader();
+        texLoader.setCrossOrigin('anonymous');
+
+        const loadRepeatingTexture = (filename, repeatX = 1, repeatY = 1) => {
+            const url = GITHUB_RAW_URL + filename;
+            const tex = texLoader.load(url);
+            tex.magFilter = THREE.NearestFilter;
+            tex.minFilter = THREE.NearestFilter;
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(repeatX, repeatY);
+            return tex;
+        };
+
+        const wallTex = loadRepeatingTexture('wall.png', 10, 4); 
+        const floorCeilingTex = loadRepeatingTexture('floor-ceiling.png', 10, 10); 
+        const moldTex = texLoader.load(GITHUB_RAW_URL + 'mold.png');
+        moldTex.magFilter = THREE.NearestFilter;
+        const dripTex = texLoader.load(GITHUB_RAW_URL + 'waterdrops.png');
+        dripTex.magFilter = THREE.NearestFilter;
+
+        // --- WORLD OBJECTS ---
+        const matWall = new THREE.MeshStandardMaterial({ map: wallTex });
+        const matFloorCeiling = new THREE.MeshStandardMaterial({ map: floorCeilingTex });
+        
+        const floor = new THREE.Mesh(new THREE.BoxGeometry(10, 0.2, 10), matFloorCeiling);
+        floor.position.y = -0.1;
+        scene.add(floor);
+
+        const waterPlane = new THREE.Mesh(
+            new THREE.BoxGeometry(10, 1, 10), 
+            new THREE.MeshStandardMaterial({ color: 0x0055ff, transparent: true, opacity: 0.6, emissive: 0x002244 })
+        );
+        waterPlane.position.y = -0.5;
+        scene.add(waterPlane);
+
+        const ceiling = new THREE.Mesh(new THREE.BoxGeometry(10, 0.2, 10), matFloorCeiling);
+        ceiling.position.y = 4;
+        scene.add(ceiling);
+
+        const moldSpot = new THREE.Mesh(
+            new THREE.PlaneGeometry(1.5, 1.5), 
+            new THREE.MeshBasicMaterial({ map: moldTex, transparent: true, side: THREE.DoubleSide })
+        );
+        moldSpot.rotation.x = Math.PI / 2;
+        moldSpot.position.set(0, 3.89, 0);
+        scene.add(moldSpot);
+
+        const wallG = new THREE.BoxGeometry(10.2, 4, 0.2);
+        const wallN = new THREE.Mesh(wallG, matWall); wallN.position.set(0, 2, -5); scene.add(wallN);
+        const wallS = new THREE.Mesh(wallG, matWall); wallS.position.set(0, 2, 5); scene.add(wallS);
+        const wallSideG = new THREE.BoxGeometry(0.2, 4, 10.2);
+        const wallE = new THREE.Mesh(wallSideG, matWall); wallE.position.set(5, 2, 0); scene.add(wallE);
+        const wallW = new THREE.Mesh(wallSideG, matWall); wallW.position.set(-5, 2, 0); scene.add(wallW);
+
+        const bucketGroup = new THREE.Group();
+        const bucketMain = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.18, 0.4, 8), new THREE.MeshStandardMaterial({ color: 0x555555, flatShading: true }));
+        const bucketWater = new THREE.Mesh(new THREE.CylinderGeometry(0.23, 0.17, 0.38, 8), new THREE.MeshStandardMaterial({ color: 0x00f2ff }));
+        bucketWater.position.y = -0.19;
+        bucketWater.scale.y = 0.01;
+        bucketGroup.add(bucketMain, bucketWater);
+        scene.add(bucketGroup);
+
+        const dripMaterial = new THREE.SpriteMaterial({ map: dripTex, transparent: true });
+
+        // --- GAME FUNCTIONS ---
+        function startGame() {
+            if (gameStarted) return;
+            gameStarted = true;
+            startTime = Date.now();
+            document.getElementById('home-screen').style.display = 'none';
+            document.getElementById('ui').style.display = 'block';
+            document.getElementById('crosshair').style.display = 'block';
+            renderer.domElement.requestPointerLock();
+            camera.position.y = PLAYER_HEIGHT;
+            moveMold();
+            createDrip();
+        }
+
+        function moveMold() {
+            if (gameOver || !gameStarted) return;
+            moldSpot.position.x = (Math.random() - 0.5) * 8;
+            moldSpot.position.z = (Math.random() - 0.5) * 8;
+            setTimeout(moveMold, 10000 + Math.random() * 8000);
+        }
+
+        function createDrip() {
+            if (gameOver || !gameStarted) return;
+            const drip = new THREE.Sprite(dripMaterial);
+            drip.scale.set(0.15, 0.25, 1);
+            drip.position.set(moldSpot.position.x, 3.8, moldSpot.position.z);
+            scene.add(drip);
+            drips.push(drip);
+            const diff = Math.max(150, 1000 - (Date.now() - startTime) / 100);
+            setTimeout(createDrip, diff);
+        }
+
+        function drainBucket() {
+            if (gameOver || !isHoldingBucket) return;
+            bucketFill = 0;
+            bucketWater.scale.y = 0.01;
+            bucketWater.position.y = -0.19;
+            document.getElementById('bucket-fill').innerText = "0";
+        }
+
+        function handleAction() {
+            if (gameOver || !gameStarted) return;
+            if (isHoldingBucket) {
+                isHoldingBucket = false;
+                document.getElementById('holding-status').innerText = "(PLACED)";
+                const placeDir = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
+                placeDir.y = 0; 
+                placeDir.normalize();
+                bucketGroup.position.copy(camera.position).add(placeDir.multiplyScalar(1.2));
+                bucketGroup.position.y = 0.2; 
+                bucketGroup.rotation.set(0, yaw, 0);
+            } else {
+                const dist = camera.position.distanceTo(bucketGroup.position);
+                if (dist < 2) {
+                    isHoldingBucket = true;
+                    document.getElementById('holding-status').innerText = "(HOLDING)";
+                }
+            }
+        }
+
+        // --- INPUT LISTENERS ---
+        document.addEventListener('keydown', (e) => {
+            keys[e.code] = true;
+            if (e.code === 'KeyQ') drainBucket();
+            if (e.code === 'Space' && isGrounded && gameStarted && !gameOver) {
+                yVelocity = JUMP_FORCE;
+                isGrounded = false;
+            }
+        });
+        document.addEventListener('keyup', (e) => keys[e.code] = false);
+
+        renderer.domElement.addEventListener('mousedown', (e) => {
+            if (!gameStarted) return;
+            if (document.pointerLockElement !== renderer.domElement) {
+                renderer.domElement.requestPointerLock();
+            } else {
+                if (e.button === 0) handleAction();
+            }
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (document.pointerLockElement === renderer.domElement) {
+                yaw -= e.movementX * 0.003;
+                pitch -= e.movementY * 0.003;
+                pitch = Math.max(-1.2, Math.min(1.2, pitch));
+            }
+        });
+
+        const velocity = new THREE.Vector3();
+        function animate() {
+            requestAnimationFrame(animate);
+            if (!gameStarted || gameOver) {
+                renderer.render(scene, camera);
+                return;
+            }
+
+            const dir = new THREE.Vector3();
+            if (keys['KeyW']) dir.z -= 1;
+            if (keys['KeyS']) dir.z += 1;
+            if (keys['KeyA']) dir.x -= 1;
+            if (keys['KeyD']) dir.x += 1;
+            dir.applyQuaternion(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0), yaw));
+            dir.normalize();
+            velocity.lerp(dir.multiplyScalar(0.12), 0.15);
+            camera.position.x += velocity.x;
+            camera.position.z += velocity.z;
+
+            yVelocity -= GRAVITY;
+            camera.position.y += yVelocity;
+
+            if (camera.position.y <= PLAYER_HEIGHT) {
+                camera.position.y = PLAYER_HEIGHT;
+                yVelocity = 0;
+                isGrounded = true;
+            }
+            
+            camera.position.x = Math.max(-4.4, Math.min(4.4, camera.position.x));
+            camera.position.z = Math.max(-4.4, Math.min(4.4, camera.position.z));
+            camera.rotation.set(pitch, yaw, 0, 'YXZ');
+
+            if (isHoldingBucket) {
+                const bOffset = new THREE.Vector3(0.35, -0.3, -0.5).applyQuaternion(camera.quaternion);
+                bucketGroup.position.copy(camera.position).add(bOffset);
+                bucketGroup.rotation.copy(camera.rotation);
+                document.getElementById('interaction-prompt').style.display = 'none';
+            } else {
+                const dist = camera.position.distanceTo(bucketGroup.position);
+                document.getElementById('interaction-prompt').style.display = (dist < 2) ? 'block' : 'none';
+            }
+
+            for (let i = drips.length - 1; i >= 0; i--) {
+                const d = drips[i];
+                d.position.y -= 0.12;
+                const hDist = new THREE.Vector2(d.position.x - bucketGroup.position.x, d.position.z - bucketGroup.position.z).length();
+
+                if (hDist < 0.3 && d.position.y < bucketGroup.position.y + 0.4 && d.position.y > bucketGroup.position.y) {
+                    if (bucketFill < BUCKET_CAPACITY) {
+                        bucketFill += 2.5; 
+                        bucketWater.scale.y = (bucketFill / 100) + 0.01;
+                        bucketWater.position.y = -0.19 + (bucketFill / 100) * 0.2;
+                        document.getElementById('bucket-fill').innerText = Math.floor(bucketFill);
+                    } else {
+                        floodLevel += 0.3;
+                    }
+                    scene.remove(d);
+                    drips.splice(i, 1);
+                } else if (d.position.y <= 0) {
+                    floodLevel += 0.6;
+                    document.getElementById('flood-level').innerText = Math.floor(floodLevel);
+                    scene.remove(d);
+                    drips.splice(i, 1);
+                }
+            }
+
+            waterPlane.position.y = -0.5 + (floodLevel / 100) * 2;
+            const elapsed = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').innerText = elapsed;
+
+            if (floodLevel >= FLOOD_LIMIT) {
+                gameOver = true;
+                document.exitPointerLock();
+                document.getElementById('game-over').style.display = 'block';
+                document.getElementById('final-time').innerText = elapsed;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.onresize = () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        };
+
+        animate();
+    </script>
+</body>
+</html>
