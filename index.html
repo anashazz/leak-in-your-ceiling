@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leak in ya ceiling - Pixel Edition</title>
+    <title>Leak in your ceiling</title>
     <style>
         body { 
             margin: 0; 
@@ -167,7 +167,7 @@
 <body>
 
     <div id="home-screen">
-        <div class="title-card">LEAK IN YA CEILING</div>
+        <div class="title-card">LEAK IN YOUR CEILING</div>
         
         <div class="main-container">
             <div class="controls-column">
@@ -216,8 +216,9 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script>
-        // --- GITHUB CONFIG ---
-        const GITHUB_RAW_URL = 'https://raw.githubusercontent.com/YOUR_USERNAME/YOUR_REPO/main/';
+        // --- ASSET CONFIG ---
+        // Using the user-provided GitHub Pages URL
+        const ASSET_BASE_URL = 'https://anashazz.github.io/leak-in-your-ceiling/';
 
         // --- CONFIG & STATE ---
         let pixelScale = 4;
@@ -269,7 +270,7 @@
         texLoader.setCrossOrigin('anonymous');
 
         const loadRepeatingTexture = (filename, repeatX = 1, repeatY = 1) => {
-            const url = GITHUB_RAW_URL + filename;
+            const url = ASSET_BASE_URL + filename;
             const tex = texLoader.load(url);
             tex.magFilter = THREE.NearestFilter;
             tex.minFilter = THREE.NearestFilter;
@@ -281,9 +282,11 @@
 
         const wallTex = loadRepeatingTexture('wall.png', 10, 4); 
         const floorCeilingTex = loadRepeatingTexture('floor-ceiling.png', 10, 10); 
-        const moldTex = texLoader.load(GITHUB_RAW_URL + 'mold.png');
+        const moldTex = texLoader.load(ASSET_BASE_URL + 'mold.png');
         moldTex.magFilter = THREE.NearestFilter;
-        const dripTex = texLoader.load(GITHUB_RAW_URL + 'waterdrops.png');
+        
+        // Updated droplet texture path
+        const dripTex = texLoader.load(ASSET_BASE_URL + 'waterdrops.png');
         dripTex.magFilter = THREE.NearestFilter;
 
         // --- WORLD OBJECTS ---
